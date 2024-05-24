@@ -54,6 +54,7 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
     private TextView mLabelGyroBiasX, mLabelGyroBiasY, mLabelGyroBiasZ;
     private TextView mLabelMagnetDataX, mLabelMagnetDataY, mLabelMagnetDataZ;
     private TextView mLabelMagnetBiasX, mLabelMagnetBiasY, mLabelMagnetBiasZ;
+    private TextView mLabelWalkStatus;
 
     private TextView mLabelWifiAPNums, mLabelWifiScanInterval;
     private TextView mLabelWifiNameSSID, mLabelWifiRSSI;
@@ -152,6 +153,9 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
     private void startRecording() {
 
+        // test walkSatus button
+        mLabelWalkStatus.setText("1000-7");
+
         // output directory for text files
         String outputFolder = null;
         try {
@@ -182,6 +186,7 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
 
     protected void stopRecording() {
+        mLabelWalkStatus.setText("TEST TEXT");
         mHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -311,6 +316,8 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         mLabelMagnetBiasX = (TextView) findViewById(R.id.label_magnet_bias_X);
         mLabelMagnetBiasY = (TextView) findViewById(R.id.label_magnet_bias_Y);
         mLabelMagnetBiasZ = (TextView) findViewById(R.id.label_magnet_bias_Z);
+
+        mLabelWalkStatus = (TextView) findViewById(R.id.walkStatus);
 
         mLabelWifiAPNums = (TextView) findViewById(R.id.label_wifi_number_ap);
         mLabelWifiScanInterval = (TextView) findViewById(R.id.label_wifi_scan_interval);
