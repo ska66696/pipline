@@ -4,14 +4,16 @@ buildscript {
     repositories {
         google()
         jcenter()
-        
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:7.4.1'
-        
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
     }
+}
+
+plugins {
+    id 'com.chaquo.python' version '15.0.1' apply false
 }
 
 allprojects {
@@ -21,6 +23,7 @@ allprojects {
         
     }
 }
+
 
 task clean(type: Delete) {
     delete rootProject.buildDir

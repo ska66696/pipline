@@ -23,6 +23,10 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.chaquo.python.PyException;
+import com.chaquo.python.Python;
+import com.chaquo.python.PyObject;
+import com.chaquo.python.android.AndroidPlatform;
 
 public class MainActivity extends AppCompatActivity implements WifiSession.WifiScannerCallback {
 
@@ -64,6 +68,9 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
     private Timer mInterfaceTimer = new Timer();
     private int mSecondCounter = 0;
 
+    // for python
+    private Python py;
+    private PyObject testPython;
 
     // Android activity lifecycle states
     @Override
@@ -71,9 +78,16 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // enable python
+        if (!Python.isStarted()) {
+            Python.start(new AndroidPlatform(this));
+        }
+
+        py = Python.getInstance();
+        testPython = py.getModule("test");
+
         // initialize screen labels and buttons
         initializeViews();
-
 
         // setup sessions
         mIMUSession = new IMUSession(this);
@@ -153,8 +167,8 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
     private void startRecording() {
 
-        // test walkSatus button
-        mLabelWalkStatus.setText("1000-7");
+        // check button
+        mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
 
         // output directory for text files
         String outputFolder = null;
@@ -186,7 +200,8 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
 
     protected void stopRecording() {
-        mLabelWalkStatus.setText("TEST TEXT");
+        mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
+
         mHandler.post(new Runnable() {
             @Override
             public void run() {
