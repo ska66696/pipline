@@ -5,28 +5,44 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.chaquo.python.PyException;
 import com.chaquo.python.Python;
 import com.chaquo.python.PyObject;
 import com.chaquo.python.android.AndroidPlatform;
+
+import org.pytorch.helloworld.ImageNetClasses;
+
+import org.pytorch.IValue;
+import org.pytorch.LiteModuleLoader;
+import org.pytorch.Module;
+import org.pytorch.Tensor;
+import org.pytorch.torchvision.TensorImageUtils;
+import org.pytorch.MemoryFormat;
 
 public class MainActivity extends AppCompatActivity implements WifiSession.WifiScannerCallback {
 
@@ -64,6 +80,9 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
     private TextView mLabelWifiNameSSID, mLabelWifiRSSI;
 
     private Button mStartStopButton;
+
+    private Button mTestButton; //test
+
     private TextView mLabelInterfaceTime;
     private Timer mInterfaceTimer = new Timer();
     private int mSecondCounter = 0;
@@ -71,6 +90,8 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
     // for python
     private Python py;
     private PyObject testPython;
+
+
 
     // Android activity lifecycle states
     @Override
@@ -134,6 +155,149 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         mIMUSession.unregisterSensors();
         super.onDestroy();
     }
+
+    //test
+    //Button button = (Button) findViewById(R.id.test);
+    //button.setOnClickListener(new View.OnClickListener() {
+      //  public void onClick(View v) {
+        //    Log.d("BUTTONS", "User tapped the Supabutton");
+        //}
+    //});
+
+//    public void helloWorldButton(View view) {
+//
+//        //public class MainActivity extends AppCompatActivity {
+//
+//        /**@Override
+//        protected void onCreate(Bundle savedInstanceState) {
+//            super.onCreate(savedInstanceState);
+//            setContentView(R.layout.activity_main);
+//
+//
+//        }
+//        */
+//        Bitmap bitmap = null;
+//        Module module = null;
+//        try {
+//            // creating bitmap from packaged into app android asset 'image.jpg',
+//            // app/src/main/assets/image.jpg
+//            bitmap = BitmapFactory.decodeStream(getAssets().open("fashionista.jpg"));
+//            // loading serialized torchscript module from packaged into app android asset model.pt,
+//            // app/src/model/assets/model.pt
+//            module = LiteModuleLoader.load(assetFilePath(this, "model.pt"));
+//        } catch (IOException e) {
+//            Log.e("PytorchHelloWorld", "Error reading assets", e);
+//            finish();
+//        }
+//
+//        // showing image on UI
+//        ImageView imageView = findViewById(R.id.image);
+//            imageView.setImageBitmap(bitmap);
+//
+//        // preparing input tensor
+//        final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
+//                TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB, MemoryFormat.CHANNELS_LAST);
+//
+//        // running the model
+//        final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
+//
+//        // getting tensor content as java array of floats
+//        final float[] scores = outputTensor.getDataAsFloatArray();
+//
+//        // searching for the index with maximum score
+//        float maxScore = -Float.MAX_VALUE;
+//        int maxScoreIdx = -1;
+//            for (int i = 0; i < scores.length; i++) {
+//            if (scores[i] > maxScore) {
+//                maxScore = scores[i];
+//                maxScoreIdx = i;
+//            }
+//        }
+//
+//        String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
+//
+//        // showing className on UI
+//        TextView textView = findViewById(R.id.text);
+//            textView.setText(className);
+//
+//    }
+//
+//    //Copies specified asset to the file in /files app directory and returns this file absolute path, return absolute file path
+//
+//    public static String assetFilePath(Context context, String assetName) throws IOException {
+//        File file = new File(context.getFilesDir(), assetName);
+//        if (file.exists() && file.length() > 0) {
+//            return file.getAbsolutePath();
+//        }
+//
+//        try (InputStream is = context.getAssets().open(assetName)) {
+//            try (OutputStream os = new FileOutputStream(file)) {
+//                byte[] buffer = new byte[4 * 1024];
+//                int read;
+//                while ((read = is.read(buffer)) != -1) {
+//                    os.write(buffer, 0, read);
+//                }
+//                os.flush();
+//            }
+//            return file.getAbsolutePath();
+//        }
+//    }/*
+
+    public void helloWorldButton(View view) {
+        Bitmap bitmap = null;
+        Module module = null;
+        try {
+            bitmap = BitmapFactory.decodeStream(getAssets().open("fashionista.jpg"));
+            module = LiteModuleLoader.load(assetFilePath(this, "model.pt"));
+        } catch (IOException e) {
+            Log.e("PytorchHelloWorld", "Error reading assets", e);
+            finish();
+        }
+
+        ImageView imageView = findViewById(R.id.image);
+        imageView.setImageBitmap(bitmap);
+
+        final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
+                TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB, MemoryFormat.CHANNELS_LAST);
+
+        final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
+        final float[] scores = outputTensor.getDataAsFloatArray();
+
+        float maxScore = -Float.MAX_VALUE;
+        int maxScoreIdx = -1;
+        for (int i = 0; i < scores.length; i++) {
+            if (scores[i] > maxScore) {
+                maxScore = scores[i];
+                maxScoreIdx = i;
+            }
+        }
+
+        String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
+
+        TextView textView = findViewById(R.id.text);
+        textView.setText(className);
+    }
+
+    public static String assetFilePath(Context context, String assetName) throws IOException {
+        File file = new File(context.getFilesDir(), assetName);
+        if (file.exists() && file.length() > 0) {
+            return file.getAbsolutePath();
+        }
+
+        try (InputStream is = context.getAssets().open(assetName)) {
+            try (OutputStream os = Files.newOutputStream(file.toPath())) {
+                byte[] buffer = new byte[4 * 1024];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
+                os.flush();
+            }
+            return file.getAbsolutePath();
+        }
+    }
+
+
 
 
     // methods
@@ -341,6 +505,8 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
         mStartStopButton = (Button) findViewById(R.id.button_start_stop);
         mLabelInterfaceTime = (TextView) findViewById(R.id.label_interface_time);
+
+        mTestButton = (Button) findViewById(R.id.test); //test
     }
 
 
