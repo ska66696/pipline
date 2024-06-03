@@ -38,6 +38,7 @@ public class IMUSession implements SensorEventListener {
     private AtomicBoolean mIsWritingFile = new AtomicBoolean(false);
 
     private float[] mAcceMeasure = new float[3];
+    private float[] mLinAcceMeasure = new float[3];
     private float[] mGyroMeasure = new float[3];
     private float[] mMagnetMeasure = new float[3];
 
@@ -208,6 +209,9 @@ public class IMUSession implements SensorEventListener {
                     break;
 
                 case Sensor.TYPE_LINEAR_ACCELERATION:
+                    mLinAcceMeasure[0] = sensorEvent.values[0];
+                    mLinAcceMeasure[1] = sensorEvent.values[1];
+                    mLinAcceMeasure[2] = sensorEvent.values[2];
                     if (isFileSaved) {
                         mFileStreamer.addRecord(timestamp, "linacce", 3, sensorEvent.values);
                     }
@@ -289,9 +293,9 @@ public class IMUSession implements SensorEventListener {
         return mIsRecording.get();
     }
 
-    public float[] getAcceMeasure() {
-        return mAcceMeasure;
-    }
+    public float[] getAcceMeasure() { return mAcceMeasure; }
+
+    public float[] getLinAcceMeasure() { return mLinAcceMeasure; }
 
     public float[] getGyroMeasure() {
         return mGyroMeasure;

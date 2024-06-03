@@ -21,7 +21,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -41,8 +40,12 @@ import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
 import org.pytorch.Module;
 import org.pytorch.Tensor;
-import org.pytorch.torchvision.TensorImageUtils;
+//import org.pytorch.torchvision.TensorImageUtils;
 import org.pytorch.MemoryFormat;
+
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.*;
 
 public class MainActivity extends AppCompatActivity implements WifiSession.WifiScannerCallback {
 
@@ -82,6 +85,10 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
     private Button mStartStopButton;
 
     private Button mTestButton; //test
+
+    private Queue<float[]> queue = new LinkedList<float[]>();
+
+    private List<float[]> list = new ArrayList<float[]>();
 
     private TextView mLabelInterfaceTime;
     private Timer mInterfaceTimer = new Timer();
@@ -125,6 +132,9 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         // monitor various sensor measurements
         displayIMUSensorMeasurements();
         mLabelInterfaceTime.setText(R.string.ready_title);
+
+        // print walk status
+        recognizeWalkStatus();
     }
 
 
@@ -157,57 +167,30 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
     }
 
     //test
-    //Button button = (Button) findViewById(R.id.test);
-    //button.setOnClickListener(new View.OnClickListener() {
-      //  public void onClick(View v) {
-        //    Log.d("BUTTONS", "User tapped the Supabutton");
-        //}
-    //});
 
 //    public void helloWorldButton(View view) {
-//
-//        //public class MainActivity extends AppCompatActivity {
-//
-//        /**@Override
-//        protected void onCreate(Bundle savedInstanceState) {
-//            super.onCreate(savedInstanceState);
-//            setContentView(R.layout.activity_main);
-//
-//
-//        }
-//        */
 //        Bitmap bitmap = null;
 //        Module module = null;
 //        try {
-//            // creating bitmap from packaged into app android asset 'image.jpg',
-//            // app/src/main/assets/image.jpg
 //            bitmap = BitmapFactory.decodeStream(getAssets().open("fashionista.jpg"));
-//            // loading serialized torchscript module from packaged into app android asset model.pt,
-//            // app/src/model/assets/model.pt
 //            module = LiteModuleLoader.load(assetFilePath(this, "model.pt"));
 //        } catch (IOException e) {
 //            Log.e("PytorchHelloWorld", "Error reading assets", e);
 //            finish();
 //        }
 //
-//        // showing image on UI
 //        ImageView imageView = findViewById(R.id.image);
-//            imageView.setImageBitmap(bitmap);
+//        imageView.setImageBitmap(bitmap);
 //
-//        // preparing input tensor
 //        final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
 //                TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB, MemoryFormat.CHANNELS_LAST);
 //
-//        // running the model
 //        final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
-//
-//        // getting tensor content as java array of floats
 //        final float[] scores = outputTensor.getDataAsFloatArray();
 //
-//        // searching for the index with maximum score
 //        float maxScore = -Float.MAX_VALUE;
 //        int maxScoreIdx = -1;
-//            for (int i = 0; i < scores.length; i++) {
+//        for (int i = 0; i < scores.length; i++) {
 //            if (scores[i] > maxScore) {
 //                maxScore = scores[i];
 //                maxScoreIdx = i;
@@ -216,67 +199,9 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 //
 //        String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
 //
-//        // showing className on UI
 //        TextView textView = findViewById(R.id.text);
-//            textView.setText(className);
-//
+//        textView.setText(className);
 //    }
-//
-//    //Copies specified asset to the file in /files app directory and returns this file absolute path, return absolute file path
-//
-//    public static String assetFilePath(Context context, String assetName) throws IOException {
-//        File file = new File(context.getFilesDir(), assetName);
-//        if (file.exists() && file.length() > 0) {
-//            return file.getAbsolutePath();
-//        }
-//
-//        try (InputStream is = context.getAssets().open(assetName)) {
-//            try (OutputStream os = new FileOutputStream(file)) {
-//                byte[] buffer = new byte[4 * 1024];
-//                int read;
-//                while ((read = is.read(buffer)) != -1) {
-//                    os.write(buffer, 0, read);
-//                }
-//                os.flush();
-//            }
-//            return file.getAbsolutePath();
-//        }
-//    }/*
-
-    public void helloWorldButton(View view) {
-        Bitmap bitmap = null;
-        Module module = null;
-        try {
-            bitmap = BitmapFactory.decodeStream(getAssets().open("fashionista.jpg"));
-            module = LiteModuleLoader.load(assetFilePath(this, "model.pt"));
-        } catch (IOException e) {
-            Log.e("PytorchHelloWorld", "Error reading assets", e);
-            finish();
-        }
-
-        ImageView imageView = findViewById(R.id.image);
-        imageView.setImageBitmap(bitmap);
-
-        final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
-                TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB, MemoryFormat.CHANNELS_LAST);
-
-        final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
-        final float[] scores = outputTensor.getDataAsFloatArray();
-
-        float maxScore = -Float.MAX_VALUE;
-        int maxScoreIdx = -1;
-        for (int i = 0; i < scores.length; i++) {
-            if (scores[i] > maxScore) {
-                maxScore = scores[i];
-                maxScoreIdx = i;
-            }
-        }
-
-        String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
-
-        TextView textView = findViewById(R.id.text);
-        textView.setText(className);
-    }
 
     public static String assetFilePath(Context context, String assetName) throws IOException {
         File file = new File(context.getFilesDir(), assetName);
@@ -506,7 +431,7 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         mStartStopButton = (Button) findViewById(R.id.button_start_stop);
         mLabelInterfaceTime = (TextView) findViewById(R.id.label_interface_time);
 
-        mTestButton = (Button) findViewById(R.id.test); //test
+        //mTestButton = (Button) findViewById(R.id.test); //test
     }
 
 
@@ -560,6 +485,94 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
                 displayIMUSensorMeasurements();
             }
         }, displayInterval);
+    }
+
+    private void recognizeWalkStatus() {
+        final int sequence_length = 10;
+
+        // get IMU sensor measurements from IMUSession
+        final float[] acce_data = mIMUSession.getAcceMeasure();
+        final float[] linacce_data = mIMUSession.getLinAcceMeasure();
+        final float[] gyro_data = mIMUSession.getGyroMeasure();
+
+        final int input_size = acce_data.length + linacce_data.length + gyro_data.length;
+        
+        if (list.size() < sequence_length) {
+            mLabelWalkStatus.setText("wait");
+            float[] res = new float[input_size];
+            // concatenation
+            System.arraycopy(acce_data, 0, res, 0, acce_data.length);
+            System.arraycopy(linacce_data, 0, res, acce_data.length, linacce_data.length);
+            System.arraycopy(gyro_data, 0, res, acce_data.length + linacce_data.length, gyro_data.length);
+            list.add(res);
+        }
+        else {
+            float[] flattenedArray = flattenListOfFloatArrays(list);
+            Module module = null;
+            try {
+                module = LiteModuleLoader.load(assetFilePath(this, "model_ilya.ptl"));
+            } catch (IOException e) {
+                Log.e("PytorchHelloWorld", "Error reading assets", e);
+                finish();
+            }
+
+            final Tensor inputTensor = Tensor.fromBlob(flattenedArray, new long[]{1, sequence_length, input_size});
+
+            Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
+
+            final float[] scores = outputTensor.getDataAsFloatArray();
+
+            float maxScore = -Float.MAX_VALUE;
+            int maxScoreIdx = -1;
+            for (int i = 0; i < scores.length; i++) {
+                if (scores[i] > maxScore) {
+                    maxScore = scores[i];
+                    maxScoreIdx = i;
+                }
+            }
+
+//            if (maxScoreIdx == 1) {
+//                mLabelWalkStatus.setText("walk");
+//            }
+//            else {
+//                mLabelWalkStatus.setText("stay");
+//            }
+            if (maxScore > 0.5) {
+                mLabelWalkStatus.setText("walk");
+            }
+            else {
+                mLabelWalkStatus.setText("stay");
+            }
+        }
+
+        // determine display update rate (100 ms)
+        final long displayInterval = 100;
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                recognizeWalkStatus();
+            }
+        }, displayInterval);
+    }
+
+    public static float[] flattenListOfFloatArrays(List<float[]> listOfFloatArrays) {
+        // Calculate the total length of the resulting array
+        int totalLength = 0;
+        for (float[] array : listOfFloatArrays) {
+            totalLength += array.length;
+        }
+
+        // Create a new array with the calculated length
+        float[] result = new float[totalLength];
+
+        // Copy elements from each array in the list to the resulting array
+        int currentIndex = 0;
+        for (float[] array : listOfFloatArrays) {
+            System.arraycopy(array, 0, result, currentIndex, array.length);
+            currentIndex += array.length;
+        }
+
+        return result;
     }
 
 
