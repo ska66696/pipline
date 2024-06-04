@@ -496,17 +496,23 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         final float[] gyro_data = mIMUSession.getGyroMeasure();
 
         final int input_size = acce_data.length + linacce_data.length + gyro_data.length;
-        
+
+        float[] all_data = new float[input_size];
+        // concatenation
+        System.arraycopy(acce_data, 0, all_data, 0, acce_data.length);
+        System.arraycopy(linacce_data, 0, all_data, acce_data.length, linacce_data.length);
+        System.arraycopy(gyro_data, 0, all_data, acce_data.length + linacce_data.length, gyro_data.length);
+
+
+
         if (list.size() < sequence_length) {
+            list.add(all_data);
             mLabelWalkStatus.setText("wait");
-            float[] res = new float[input_size];
-            // concatenation
-            System.arraycopy(acce_data, 0, res, 0, acce_data.length);
-            System.arraycopy(linacce_data, 0, res, acce_data.length, linacce_data.length);
-            System.arraycopy(gyro_data, 0, res, acce_data.length + linacce_data.length, gyro_data.length);
-            list.add(res);
         }
-        else {
+        else { // list.size() == sequence_length + 1
+            list.remove(0);
+            list.add(all_data);
+
             float[] flattenedArray = flattenListOfFloatArrays(list);
             Module module = null;
             try {
