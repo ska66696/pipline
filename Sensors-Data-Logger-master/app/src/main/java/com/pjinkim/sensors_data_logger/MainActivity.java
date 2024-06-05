@@ -217,11 +217,17 @@ public class MainActivity extends AppCompatActivity{
 
             // start interface timer on display
             mSecondCounter = 0;
+            mInterfaceTimer = new Timer();
             mInterfaceTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    mSecondCounter += 1;
-                    mLabelInterfaceTime.setText(interfaceIntTime(mSecondCounter));
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mSecondCounter += 1;
+                            mLabelInterfaceTime.setText(interfaceIntTime(mSecondCounter));
+                        }
+                    });
                 }
             }, 0, 1000);
 
@@ -231,10 +237,14 @@ public class MainActivity extends AppCompatActivity{
             stopRecording();
 
             // stop interface timer on display
-            mInterfaceTimer.cancel();
+            if (mInterfaceTimer != null) {
+                mInterfaceTimer.cancel();
+                mInterfaceTimer = null;
+            }
             mLabelInterfaceTime.setText(R.string.ready_title);
         }
     }
+
 
 
     private void startRecording() {
