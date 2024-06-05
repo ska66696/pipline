@@ -3,3 +3,4 @@ build
 .gradle
 .idea
 pipline_venv/
+.ipynb_checkpoints/

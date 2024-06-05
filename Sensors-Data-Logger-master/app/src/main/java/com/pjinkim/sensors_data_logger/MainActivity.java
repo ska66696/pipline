@@ -47,25 +47,20 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.*;
 
-public class MainActivity extends AppCompatActivity implements WifiSession.WifiScannerCallback {
+public class MainActivity extends AppCompatActivity{
 
     // properties
     private final static String LOG_TAG = MainActivity.class.getName();
 
     private final static int REQUEST_CODE_ANDROID = 1001;
     private static String[] REQUIRED_PERMISSIONS = new String[] {
-            Manifest.permission.READ_PHONE_STATE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.ACCESS_WIFI_STATE,
-            Manifest.permission.CHANGE_WIFI_STATE,
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION
     };
 
     private IMUConfig mConfig = new IMUConfig();
     private IMUSession mIMUSession;
-    private WifiSession mWifiSession;
-    private BatterySession mBatterySession;
 
     private Handler mHandler = new Handler();
     private AtomicBoolean mIsRecording = new AtomicBoolean(false);
@@ -78,9 +73,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
     private TextView mLabelMagnetDataX, mLabelMagnetDataY, mLabelMagnetDataZ;
     private TextView mLabelMagnetBiasX, mLabelMagnetBiasY, mLabelMagnetBiasZ;
     private TextView mLabelWalkStatus;
-
-    private TextView mLabelWifiAPNums, mLabelWifiScanInterval;
-    private TextView mLabelWifiNameSSID, mLabelWifiRSSI;
 
     private Button mStartStopButton;
 
@@ -119,15 +111,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
         // setup sessions
         mIMUSession = new IMUSession(this);
-        mWifiSession = new WifiSession(this);
-        mBatterySession = new BatterySession(this);
-
-
-        // battery power setting
-        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        mWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sensors_data_logger:wakelocktag");
-        mWakeLock.acquire();
-
 
         // monitor various sensor measurements
         displayIMUSensorMeasurements();
@@ -257,7 +240,7 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
     private void startRecording() {
 
         // check button
-        mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
+        //mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
 
         // output directory for text files
         String outputFolder = null;
@@ -272,8 +255,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
         // start each session
         mIMUSession.startSession(outputFolder);
-        mWifiSession.startSession(outputFolder);
-        mBatterySession.startSession(outputFolder);
         mIsRecording.set(true);
 
         // update Start/Stop button UI
@@ -289,7 +270,7 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
 
     protected void stopRecording() {
-        mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
+        //mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
 
         mHandler.post(new Runnable() {
             @Override
@@ -297,8 +278,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
                 // stop each session
                 mIMUSession.stopSession();
-                mWifiSession.stopSession();
-                mBatterySession.stopSession();
                 mIsRecording.set(false);
 
                 // update screen UI and button
@@ -360,10 +339,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
             public void run() {
                 mStartStopButton.setEnabled(true);
                 mStartStopButton.setText(R.string.start_title);
-                mLabelWifiAPNums.setText("N/A");
-                mLabelWifiScanInterval.setText("0");
-                mLabelWifiNameSSID.setText("N/A");
-                mLabelWifiRSSI.setText("N/A");
             }
         });
     }
@@ -422,11 +397,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         mLabelMagnetBiasZ = (TextView) findViewById(R.id.label_magnet_bias_Z);
 
         mLabelWalkStatus = (TextView) findViewById(R.id.walkStatus);
-
-        mLabelWifiAPNums = (TextView) findViewById(R.id.label_wifi_number_ap);
-        mLabelWifiScanInterval = (TextView) findViewById(R.id.label_wifi_scan_interval);
-        mLabelWifiNameSSID = (TextView) findViewById(R.id.label_wifi_SSID_name);
-        mLabelWifiRSSI = (TextView) findViewById(R.id.label_wifi_RSSI);
 
         mStartStopButton = (Button) findViewById(R.id.button_start_stop);
         mLabelInterfaceTime = (TextView) findViewById(R.id.label_interface_time);
@@ -579,20 +549,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         }
 
         return result;
-    }
-
-
-    @Override
-    public void displayWifiScanMeasurements(final int currentApNums, final float currentScanInterval, final String nameSSID, final int RSSI) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mLabelWifiAPNums.setText(String.valueOf(currentApNums));
-                mLabelWifiScanInterval.setText(String.format(Locale.US, "%.1f", currentScanInterval));
-                mLabelWifiNameSSID.setText(String.valueOf(nameSSID));
-                mLabelWifiRSSI.setText(String.valueOf(RSSI));
-            }
-        });
     }
 
 
