@@ -295,8 +295,6 @@ public class IMUSession implements SensorEventListener {
 
     public float[] getAcceMeasure() { return mAcceMeasure; }
 
-    public float[] getLinAcceMeasure() { return mLinAcceMeasure; }
-
     public float[] getGyroMeasure() {
         return mGyroMeasure;
     }

@@ -43,11 +43,6 @@ import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
 import org.pytorch.Module;
 import org.pytorch.Tensor;
-//import org.pytorch.torchvision.TensorImageUtils;
-import org.pytorch.MemoryFormat;
-
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.*;
 
 public class MainActivity extends AppCompatActivity{
@@ -78,11 +73,6 @@ public class MainActivity extends AppCompatActivity{
     private TextView mLabelWalkStatus;
     private TextView mLabelWalkInfo;
     private Button mStartStopButton;
-
-    private Button mTestButton; //test
-
-    private Queue<float[]> queue = new LinkedList<float[]>();
-
     private List<float[]> list = new ArrayList<float[]>();
 
     private TextView mLabelInterfaceTime;
@@ -178,43 +168,6 @@ public class MainActivity extends AppCompatActivity{
         mIMUSession.unregisterSensors();
         super.onDestroy();
     }
-
-    //test
-
-//    public void helloWorldButton(View view) {
-//        Bitmap bitmap = null;
-//        Module module = null;
-//        try {
-//            bitmap = BitmapFactory.decodeStream(getAssets().open("fashionista.jpg"));
-//            module = LiteModuleLoader.load(assetFilePath(this, "model.pt"));
-//        } catch (IOException e) {
-//            Log.e("PytorchHelloWorld", "Error reading assets", e);
-//            finish();
-//        }
-//
-//        ImageView imageView = findViewById(R.id.image);
-//        imageView.setImageBitmap(bitmap);
-//
-//        final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
-//                TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB, MemoryFormat.CHANNELS_LAST);
-//
-//        final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
-//        final float[] scores = outputTensor.getDataAsFloatArray();
-//
-//        float maxScore = -Float.MAX_VALUE;
-//        int maxScoreIdx = -1;
-//        for (int i = 0; i < scores.length; i++) {
-//            if (scores[i] > maxScore) {
-//                maxScore = scores[i];
-//                maxScoreIdx = i;
-//            }
-//        }
-//
-//        String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
-//
-//        TextView textView = findViewById(R.id.text);
-//        textView.setText(className);
-//    }
 
     private float[] loadMeanValues() throws IOException {
         return loadAssetFile(this, "mean_values.txt");
@@ -496,7 +449,6 @@ public class MainActivity extends AppCompatActivity{
         mStartStopButton = (Button) findViewById(R.id.button_start_stop);
         mLabelInterfaceTime = (TextView) findViewById(R.id.label_interface_time);
 
-        //mTestButton = (Button) findViewById(R.id.test); //test
     }
 
 
@@ -557,15 +509,13 @@ public class MainActivity extends AppCompatActivity{
         // get IMU sensor measurements from IMUSession
         final float[] acce_data = mIMUSession.getAcceMeasure();
         final float[] gyro_data = mIMUSession.getGyroMeasure();
-        //final float[] linacce_data = mIMUSession.getLinAcceMeasure();
 
-        final int input_size = acce_data.length + gyro_data.length;// + linacce_data.length;
+        final int input_size = acce_data.length + gyro_data.length;
 
         float[] all_data = new float[input_size];
         // concatenation
         System.arraycopy(acce_data, 0, all_data, 0, acce_data.length);
         System.arraycopy(gyro_data, 0, all_data, acce_data.length, gyro_data.length);
-        //System.arraycopy(linacce_data, 0, all_data, acce_data.length + gyro_data.length, linacce_data.length);
 
         // Standardize the data
         for (int i = 0; i < all_data.length; i++) {
