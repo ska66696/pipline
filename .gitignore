@@ -2,4 +2,5 @@ venv
 build
 .gradle
 .idea
-.ipynb_checkpoints
+pipline_venv/
+.ipynb_checkpoints/

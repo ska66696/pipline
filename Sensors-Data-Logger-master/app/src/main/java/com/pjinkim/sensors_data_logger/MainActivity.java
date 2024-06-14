@@ -5,48 +5,60 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.BufferedReader;
+import java.nio.file.Files;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.chaquo.python.PyException;
 import com.chaquo.python.Python;
 import com.chaquo.python.PyObject;
 import com.chaquo.python.android.AndroidPlatform;
 
-public class MainActivity extends AppCompatActivity implements WifiSession.WifiScannerCallback {
+import org.pytorch.helloworld.ImageNetClasses;
+
+import org.pytorch.IValue;
+import org.pytorch.LiteModuleLoader;
+import org.pytorch.Module;
+import org.pytorch.Tensor;
+import java.util.*;
+
+public class MainActivity extends AppCompatActivity{
 
     // properties
     private final static String LOG_TAG = MainActivity.class.getName();
 
     private final static int REQUEST_CODE_ANDROID = 1001;
     private static String[] REQUIRED_PERMISSIONS = new String[] {
-            Manifest.permission.READ_PHONE_STATE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.ACCESS_WIFI_STATE,
-            Manifest.permission.CHANGE_WIFI_STATE,
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION
     };
 
     private IMUConfig mConfig = new IMUConfig();
     private IMUSession mIMUSession;
-    private WifiSession mWifiSession;
-    private BatterySession mBatterySession;
 
     private Handler mHandler = new Handler();
     private AtomicBoolean mIsRecording = new AtomicBoolean(false);
@@ -59,18 +71,26 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
     private TextView mLabelMagnetDataX, mLabelMagnetDataY, mLabelMagnetDataZ;
     private TextView mLabelMagnetBiasX, mLabelMagnetBiasY, mLabelMagnetBiasZ;
     private TextView mLabelWalkStatus;
-
-    private TextView mLabelWifiAPNums, mLabelWifiScanInterval;
-    private TextView mLabelWifiNameSSID, mLabelWifiRSSI;
-
+    private TextView mLabelWalkInfo;
     private Button mStartStopButton;
+    private List<float[]> list = new ArrayList<float[]>();
+
     private TextView mLabelInterfaceTime;
     private Timer mInterfaceTimer = new Timer();
     private int mSecondCounter = 0;
+    private long walkTime;
+    private long stayTime;
+    final int sequenceLength = 20;
+    final int sequenceStep = sequenceLength / 2;
+    int stepCounter = 0;
+    private float[] meanValues = { /* Mean values for each feature */ };
+    private float[] stdValues = { /* Standard deviation values for each feature */ };
 
     // for python
     private Python py;
     private PyObject testPython;
+
+
 
     // Android activity lifecycle states
     @Override
@@ -86,24 +106,38 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         py = Python.getInstance();
         testPython = py.getModule("test");
 
+        walkTime = 0;
+        stayTime = 0;
+        try {
+            meanValues = loadMeanValues();
+            stdValues = loadStdValues();
+
+            if (meanValues.length == 0 || stdValues.length == 0) {
+                throw new IllegalStateException("Mean or Std values arrays are empty");
+            }
+
+            Log.d("MeanValues", "Loaded mean values: " + Arrays.toString(meanValues));
+            Log.d("StdValues", "Loaded std values: " + Arrays.toString(stdValues));
+
+        } catch (IOException e) {
+            Log.e("SensorLogger", "Error loading mean and std values", e);
+        } catch (IllegalStateException e) {
+            Log.e("SensorLogger", "Mean or Std values arrays are empty", e);
+        }
+
         // initialize screen labels and buttons
         initializeViews();
 
         // setup sessions
         mIMUSession = new IMUSession(this);
-        mWifiSession = new WifiSession(this);
-        mBatterySession = new BatterySession(this);
-
-
-        // battery power setting
-        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        mWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sensors_data_logger:wakelocktag");
-        mWakeLock.acquire();
-
 
         // monitor various sensor measurements
         displayIMUSensorMeasurements();
         mLabelInterfaceTime.setText(R.string.ready_title);
+
+        mLabelWalkInfo.setText("No info. Start recording");
+        // print walk status
+        recognizeWalkStatus();
     }
 
 
@@ -135,6 +169,64 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         super.onDestroy();
     }
 
+    private float[] loadMeanValues() throws IOException {
+        return loadAssetFile(this, "mean_values.txt");
+    }
+
+    private float[] loadStdValues() throws IOException {
+        return loadAssetFile(this, "std_values.txt");
+    }
+
+    private float[] loadAssetFile(Context context, String assetName) throws IOException {
+        String filePath = assetFilePath(context, assetName);
+
+        File file = new File(filePath);
+        if (!file.exists() || file.length() == 0) {
+            return new float[0];
+        }
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)))) {
+            String line;
+            List<Float> valuesList = new ArrayList<>();
+            while ((line = reader.readLine()) != null) {
+                try {
+                    float value = Float.parseFloat(line);
+                    valuesList.add(value);
+                } catch (NumberFormatException e) {
+                    // Handle parse error
+                }
+            }
+            if (valuesList.isEmpty()) {
+                return new float[0];
+            }
+            float[] valuesArray = new float[valuesList.size()];
+            for (int i = 0; i < valuesArray.length; i++) {
+                valuesArray[i] = valuesList.get(i);
+            }
+            return valuesArray;
+        }
+    }
+
+    public static String assetFilePath(Context context, String assetName) throws IOException {
+        File file = new File(context.getFilesDir(), assetName);
+        if (file.exists() && file.length() > 0) {
+            return file.getAbsolutePath();
+        }
+
+        try (InputStream is = context.getAssets().open(assetName)) {
+            try (OutputStream os = Files.newOutputStream(file.toPath())) {
+                byte[] buffer = new byte[4 * 1024];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
+                os.flush();
+            }
+            return file.getAbsolutePath();
+        }
+    }
+
+
 
     // methods
     public void startStopRecording(View view) {
@@ -145,11 +237,17 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
             // start interface timer on display
             mSecondCounter = 0;
+            mInterfaceTimer = new Timer();
             mInterfaceTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    mSecondCounter += 1;
-                    mLabelInterfaceTime.setText(interfaceIntTime(mSecondCounter));
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mSecondCounter += 1;
+                            mLabelInterfaceTime.setText(interfaceIntTime(mSecondCounter));
+                        }
+                    });
                 }
             }, 0, 1000);
 
@@ -159,16 +257,24 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
             stopRecording();
 
             // stop interface timer on display
-            mInterfaceTimer.cancel();
+            if (mInterfaceTimer != null) {
+                mInterfaceTimer.cancel();
+                mInterfaceTimer = null;
+            }
             mLabelInterfaceTime.setText(R.string.ready_title);
         }
     }
 
 
+
     private void startRecording() {
 
         // check button
-        mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
+        //mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
+
+        walkTime = 0;
+        stayTime = 0;
+        mLabelWalkInfo.setText("Recording...");
 
         // output directory for text files
         String outputFolder = null;
@@ -183,8 +289,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
         // start each session
         mIMUSession.startSession(outputFolder);
-        mWifiSession.startSession(outputFolder);
-        mBatterySession.startSession(outputFolder);
         mIsRecording.set(true);
 
         // update Start/Stop button UI
@@ -200,7 +304,19 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
 
     protected void stopRecording() {
-        mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
+        //mLabelWalkStatus.setText(testPython.callAttr("chooseText").toString());
+        long totalTime = walkTime + stayTime;
+        String str;
+        if (totalTime == 0) {
+            str = "No data recorded.";
+        } else {
+            double walkPercentage = (double) walkTime / totalTime * 100;
+            double stayPercentage = (double) stayTime / totalTime * 100;
+            str = String.format("Walk: %.2f%%, Stay: %.2f%%", walkPercentage, stayPercentage);
+        }
+
+        mLabelWalkInfo.setText(str);
+
 
         mHandler.post(new Runnable() {
             @Override
@@ -208,8 +324,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
                 // stop each session
                 mIMUSession.stopSession();
-                mWifiSession.stopSession();
-                mBatterySession.stopSession();
                 mIsRecording.set(false);
 
                 // update screen UI and button
@@ -271,10 +385,6 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
             public void run() {
                 mStartStopButton.setEnabled(true);
                 mStartStopButton.setText(R.string.start_title);
-                mLabelWifiAPNums.setText("N/A");
-                mLabelWifiScanInterval.setText("0");
-                mLabelWifiNameSSID.setText("N/A");
-                mLabelWifiRSSI.setText("N/A");
             }
         });
     }
@@ -334,13 +444,11 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
 
         mLabelWalkStatus = (TextView) findViewById(R.id.walkStatus);
 
-        mLabelWifiAPNums = (TextView) findViewById(R.id.label_wifi_number_ap);
-        mLabelWifiScanInterval = (TextView) findViewById(R.id.label_wifi_scan_interval);
-        mLabelWifiNameSSID = (TextView) findViewById(R.id.label_wifi_SSID_name);
-        mLabelWifiRSSI = (TextView) findViewById(R.id.label_wifi_RSSI);
+        mLabelWalkInfo = (TextView) findViewById(R.id.walkInfo);
 
         mStartStopButton = (Button) findViewById(R.id.button_start_stop);
         mLabelInterfaceTime = (TextView) findViewById(R.id.label_interface_time);
+
     }
 
 
@@ -396,18 +504,92 @@ public class MainActivity extends AppCompatActivity implements WifiSession.WifiS
         }, displayInterval);
     }
 
+    private void recognizeWalkStatus() {
 
-    @Override
-    public void displayWifiScanMeasurements(final int currentApNums, final float currentScanInterval, final String nameSSID, final int RSSI) {
-        runOnUiThread(new Runnable() {
+        // get IMU sensor measurements from IMUSession
+        final float[] acce_data = mIMUSession.getAcceMeasure();
+        final float[] gyro_data = mIMUSession.getGyroMeasure();
+
+        final int input_size = acce_data.length + gyro_data.length;
+
+        float[] all_data = new float[input_size];
+        // concatenation
+        System.arraycopy(acce_data, 0, all_data, 0, acce_data.length);
+        System.arraycopy(gyro_data, 0, all_data, acce_data.length, gyro_data.length);
+
+        // Standardize the data
+        for (int i = 0; i < all_data.length; i++) {
+            all_data[i] = (all_data[i] - meanValues[i]) / stdValues[i];
+        }
+
+        if (list.size() < sequenceLength) {
+            list.add(all_data);
+            mLabelWalkStatus.setText("wait");
+        }
+        else { // list.size() == sequenceLength + 1
+            list.remove(0);
+            list.add(all_data);
+
+            if (stepCounter % sequenceStep == 0) {
+                float[] flattenedArray = flattenListOfFloatArrays(list);
+                Module module = null;
+                try {
+                    module = LiteModuleLoader.load(assetFilePath(this, "model_rnn_v2_20.pt"));
+                } catch (IOException e) {
+                    Log.e("SensorLogger", "Error reading assets", e);
+                    finish();
+                }
+
+                final Tensor inputTensor = Tensor.fromBlob(flattenedArray, new long[]{1, sequenceLength, input_size});
+
+                Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
+
+                final float[] scores = outputTensor.getDataAsFloatArray();
+
+                if (scores[0] > 0.5) {
+                    mLabelWalkStatus.setText("walk");
+                    if (mIsRecording.get()) {
+                        walkTime++;
+                    }
+                } else {
+                    mLabelWalkStatus.setText("stay");
+                    if (mIsRecording.get()) {
+                        stayTime++;
+                    }
+                }
+            }
+            stepCounter++;
+
+        }
+
+        // determine display update rate (100 ms)
+        final long displayInterval = 100;
+        mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                mLabelWifiAPNums.setText(String.valueOf(currentApNums));
-                mLabelWifiScanInterval.setText(String.format(Locale.US, "%.1f", currentScanInterval));
-                mLabelWifiNameSSID.setText(String.valueOf(nameSSID));
-                mLabelWifiRSSI.setText(String.valueOf(RSSI));
+                recognizeWalkStatus();
             }
-        });
+        }, displayInterval);
+    }
+
+    public static float[] flattenListOfFloatArrays(List<float[]> listOfFloatArrays) {
+        // Calculate the total length of the resulting array
+        int totalLength = 0;
+        for (float[] array : listOfFloatArrays) {
+            totalLength += array.length;
+        }
+
+        // Create a new array with the calculated length
+        float[] result = new float[totalLength];
+
+        // Copy elements from each array in the list to the resulting array
+        int currentIndex = 0;
+        for (float[] array : listOfFloatArrays) {
+            System.arraycopy(array, 0, result, currentIndex, array.length);
+            currentIndex += array.length;
+        }
+
+        return result;
     }
 
 
