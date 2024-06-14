@@ -80,7 +80,7 @@ public class MainActivity extends AppCompatActivity{
     private int mSecondCounter = 0;
     private long walkTime;
     private long stayTime;
-    final int sequenceLength = 100;
+    final int sequenceLength = 20;
     final int sequenceStep = sequenceLength / 2;
     int stepCounter = 0;
     private float[] meanValues = { /* Mean values for each feature */ };
@@ -534,7 +534,7 @@ public class MainActivity extends AppCompatActivity{
                 float[] flattenedArray = flattenListOfFloatArrays(list);
                 Module module = null;
                 try {
-                    module = LiteModuleLoader.load(assetFilePath(this, "model_rnn_v2.pt"));
+                    module = LiteModuleLoader.load(assetFilePath(this, "model_rnn_v2_20.pt"));
                 } catch (IOException e) {
                     Log.e("SensorLogger", "Error reading assets", e);
                     finish();
